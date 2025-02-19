@@ -1,0 +1,71 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/valyala/fasthttp"
+)
+
+func main() {
+	m3u := flag.String("m3u", "", "m3u link")
+	cutFrom := flag.Int("cut", 0, "position to cut name from")
+	cnt := flag.Int("cnt", 0, "count of files to download 0=all")
+
+	flag.Parse()
+	if *m3u == "" || *cutFrom == 0 {
+		flag.Usage()
+		return
+	}
+
+	var dst []byte
+	_, body, _ := fasthttp.GetTimeout(dst, *m3u, time.Minute)
+
+	list := strings.Split(string(body), "\n")
+	fmt.Printf("m3u contains: %d files\n", len(list))
+
+	ioutil.WriteFile("current.m3u", body, 0644)
+
+	os.MkdirAll("./files", 0644)
+
+	c := make(chan string)
+	var w sync.WaitGroup
+
+	downloader := func() {
+		defer w.Done()
+		for file := range c {
+			var dst []byte
+			name := strings.ReplaceAll(file[*cutFrom:], "/", "-")
+			name = strings.ReplaceAll(name, "&", "_")
+			name = "./files/" + name
+
+			info, _ := os.Stat(name)
+			//file not exists
+			if info == nil || info.Size() == 0 {
+				_, body, _ := fasthttp.GetTimeout(dst, file, time.Minute*2)
+				ioutil.WriteFile(name, body, 0644)
+			}
+		}
+	}
+
+	for i := 0; i < 10; i++ {
+		w.Add(1)
+		go downloader()
+	}
+
+	for i, v := range list {
+		c <- v
+		fmt.Printf("%d  : %s\n", i, v)
+		if i > *cnt && *cnt > 0 {
+			break
+		}
+	}
+
+	close(c)
+	w.Wait()
+}
