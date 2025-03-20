@@ -39,6 +39,9 @@ func main() {
 	downloader := func() {
 		defer w.Done()
 		for file := range c {
+			if len(file)<(*cutFrom+2) {
+				continue
+			}
 			var dst []byte
 			name := strings.ReplaceAll(file[*cutFrom:], "/", "-")
 			name = strings.ReplaceAll(name, "&", "_")
