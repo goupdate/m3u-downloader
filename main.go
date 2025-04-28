@@ -14,6 +14,7 @@ import (
 
 func main() {
 	m3u := flag.String("m3u", "", "m3u link")
+	domain := flag.String("d", "", "domain?")
 	cutFrom := flag.Int("cut", 0, "position to cut name from")
 	cnt := flag.Int("cnt", 0, "count of files to download 0=all")
 
@@ -46,6 +47,8 @@ func main() {
 			name := strings.ReplaceAll(file[*cutFrom:], "/", "-")
 			name = strings.ReplaceAll(name, "&", "_")
 			name = "./files/" + name
+
+			file = strings.ReplaceAll(file,"/domain/","/"+*domain+"/")
 
 			info, _ := os.Stat(name)
 			//file not exists
