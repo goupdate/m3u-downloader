@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -43,27 +44,45 @@ func main() {
 	downloader := func() {
 		defer w.Done()
 		for file := range c {
-			if len(file)<(*cutFrom+2) {
+			if len(file) < (*cutFrom + 2) {
 				continue
 			}
-			var dst []byte
+			//	var dst []byte
 			name := strings.ReplaceAll(file[*cutFrom:], "/", "-")
 			name = strings.ReplaceAll(name, "&", "_")
 			name = "./files/" + name
 
-			file = strings.ReplaceAll(file,"/domain/","/"+*domain+"/")
+			file = strings.ReplaceAll(file, "/domain/", "/"+*domain+"/")
 
 			info, _ := os.Stat(name)
 			//file not exists
 			if info == nil || info.Size() == 0 {
-				fmt.Printf("%d  : %s\n", atomic.AddInt32(&num,1), file)					
-				_, body, _ := fasthttp.GetTimeout(dst, file, time.Minute*2)
-				ioutil.WriteFile(name, body, 0644)
+				numq := atomic.AddInt32(&num, 1)
+				fmt.Printf("%d  : %s\n", numq, file)
+
+				http.DefaultClient.Timeout = time.Minute * 2
+				resp, err := http.Get(file)
+				if err != nil {
+					fmt.Printf("%d  : %s - %s\n", numq, file, err.Error())
+					continue
+				}
+
+				func() {
+					body, err := ioutil.ReadAll(resp.Body)
+					if err != nil {
+						fmt.Printf("%d  : %s - %s\n", numq, file, err.Error())
+						return
+					}
+
+					defer resp.Body.Close()
+
+					ioutil.WriteFile(name, body, 0644)
+				}()
 			}
 		}
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 5 {
 		w.Add(1)
 		go downloader()
 	}
