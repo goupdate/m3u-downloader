@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -37,6 +38,8 @@ func main() {
 	c := make(chan string)
 	var w sync.WaitGroup
 
+	num := int32(1)
+
 	downloader := func() {
 		defer w.Done()
 		for file := range c {
@@ -53,6 +56,7 @@ func main() {
 			info, _ := os.Stat(name)
 			//file not exists
 			if info == nil || info.Size() == 0 {
+				fmt.Printf("%d  : %s\n", atomic.LoadInt32(&num), file)	
 				_, body, _ := fasthttp.GetTimeout(dst, file, time.Minute*2)
 				ioutil.WriteFile(name, body, 0644)
 			}
@@ -66,7 +70,7 @@ func main() {
 
 	for i, v := range list {
 		c <- v
-		fmt.Printf("%d  : %s\n", i, v)
+		atomic.AddInt32(&num,1)
 		if i > *cnt && *cnt > 0 {
 			break
 		}
