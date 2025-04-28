@@ -56,7 +56,7 @@ func main() {
 			info, _ := os.Stat(name)
 			//file not exists
 			if info == nil || info.Size() == 0 {
-				fmt.Printf("%d  : %s\n", atomic.LoadInt32(&num), file)	
+				fmt.Printf("%d  : %s\n", atomic.AddInt32(&num,1), file)					
 				_, body, _ := fasthttp.GetTimeout(dst, file, time.Minute*2)
 				ioutil.WriteFile(name, body, 0644)
 			}
@@ -70,7 +70,6 @@ func main() {
 
 	for i, v := range list {
 		c <- v
-		atomic.AddInt32(&num,1)
 		if i > *cnt && *cnt > 0 {
 			break
 		}
